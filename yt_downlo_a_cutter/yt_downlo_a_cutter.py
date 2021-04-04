@@ -5,13 +5,16 @@ from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.video.io.VideoFileClip import VideoFileClip
 import enquiries
 import os
+from datetime import datetime, date, time, timedelta
+import re
 
 # information about video
 def video_info(youtube):
-    print('\nvideo description: ', youtube.description)
-    print('rating', youtube.rating)
-    print('length', youtube.length)
-    print('views', youtube.views, "\n")
+    conversion = datetime.timedelta(seconds=youtube.length)
+    print('\nVideo description: ', youtube.description)
+    print('Rating', youtube.rating)
+    print('Length', conversion )
+    print('Views', youtube.views, "\n")
     
 # downloading video
 def down_yt_vid(url, path):
@@ -21,9 +24,9 @@ def down_yt_vid(url, path):
     
     video = youtube.streams.filter().first().download(path)
     options = ['Yes', 'No']
-    choice = enquiries.choose('do you want rename file?: ', options)
+    choice = enquiries.choose('Do you want rename file?: ', options)
     if choice == options[0]:    
-        print("enter new name:")
+        print("Enter new name:")
         new_name = input()
         os.rename(video, new_name +'.mp4')
     elif choice == options[1]:  
@@ -39,11 +42,21 @@ def down_yt_vid_as_mp3(url, path):
     options = ['Yes', 'No']
     choice = enquiries.choose('do you want rename file?: ', options)
     if choice == options[0]:    
-        print("enter new name:")
+        print("Enter new name:")
         new_name = input()
         os.rename(video, new_name +'.mp4')
-    elif choice == options[1]:  
+    elif choice == options[1]:       
         pass
+    
+# convert time from h.m.s to sec
+def time_conver(time_tex):
+    x = re.findall("[0-9]+", time_tex)
+    h = int(x[0]) * 3600
+    m = int(x[1]) * 60
+    s = int(x[2])
+
+    suma = h + m + s
+    return(suma)
     
 # cropping video    
 def cropp_video(name, path):
@@ -51,43 +64,52 @@ def cropp_video(name, path):
     destin_path = path + "/" + "cropped_"+ name 
     
     clip = VideoFileClip(source_path)
-    duration = clip.duration
-    print("Duration : " + str(duration) +" second")
     
+    sec = clip.duration
+    # mins = (clip.duration % 3600) / 60
+    m, s = divmod(sec, 60)
+    h, m = divmod(m, 60)
+    
+    m = str(int(m))
+    h = str(int(h))
+    s = str(int(s))
+    # conversion = datetime.timedelta(seconds=duration)
+    print("Duration : "+h+"."+m+"."+s )
+
     print("\nInput begining and the end of file in seconds")
-    print("begining:")
-    start = int(input())
+    print("Begining:")
+    start = input()
+    start = time_conver(start)
+
     print("The end:")
-    stop = int(input())
+    stop = input()
+    stop = time_conver(stop)
     
-    ffmpeg_extract_subclip(source_path, start, stop, targetname = destin_path)
+    ffmpeg_extract_subclip(source_path, start, stop/2, targetname = destin_path)
     
 # main loop
 if __name__ == "__main__":
     path = os.getcwd()
-    options = ['Download YT Video', 'Download YT Video_as_mp3', 'crop file', 'Aby zakończyć']
+    options = ['Download Video', 'Download only sound', 'Crop file', 'Close']
 
     while(True):
         os.system('clear')
         choice = enquiries.choose('Choose one of these options: ', options)
         print(choice)
         if choice == options[0]:
-            print("enter url of video")
-            url = input()
-            down_yt_vid(url, path)
-            continue
+            try:
+                url = input("Enter url of video")
+                down_yt_vid(url, path)
+            except:
+                print('Try again..')           
         elif choice == options[1]:
-            print("enter url of video")
-            url = input()
+            url = input("Enter url of video")
             down_yt_vid_as_mp3(url, path)  
             continue
         elif choice == options[2]:
-            print("enter file name:")
-            name = input()            
+            name = input("Enter file name:")            
             cropp_video(name, path)
         elif choice == options[3]:
-            print("see you soon!")
+            print("See you soon!")
             break
-        else:
-            print("try again")
-            os.system('clear')
+
