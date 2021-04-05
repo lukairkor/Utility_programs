@@ -16,26 +16,23 @@ def video_info(youtube):
     print('Rating', youtube.rating)
     print('Length', conversion )
     print('Views', youtube.views, "\n") 
-# https://www    
-# downloading video
-def down_yt_vid(youtube, path):
-    video = youtube.streams.filter().first().download(path)
-    options = ['Yes', 'No']
-    choice = enquiries.choose('Do you want rename file?: ', options)
-    if choice == options[0]:    
-        new_name = input("Enter new name (without extension):\n")
-        os.rename(video, new_name +'.mp4')
-    elif choice == options[1]:  
-        pass
 
-# downloading only audio   
-def down_yt_vid_as_mp3(youtube, path):    
-    video = youtube.streams.filter(only_audio=True).first().download(path)
+# downloading video
+def down_yt_vid(youtube, path, kind):
+    if kind == 0:
+        video = youtube.streams.filter().first().download(path)
+    elif kind == 1:
+        video = youtube.streams.filter(only_audio=True).first().download(path)
+    rename_file(video)
+
+# rename file
+def rename_file(video):
     options = ['Yes', 'No']
     choice = enquiries.choose('do you want rename file?: ', options)
     if choice == options[0]:    
         new_name = input("Enter new name (without extension):\n")
         os.rename(video, new_name +'.mp4')
+        return new_name
     elif choice == options[1]:       
         pass
     
@@ -72,7 +69,6 @@ def time_conver_from_secon(clip):
 # cropping video    
 def cropp_video(name, path):
     source_path = path + "/" + name
-    destin_path = path + "/" + "cropped_"+ name 
     
     options = ['Cut Video [only]: ', 'Cut Audio and convert to mp3']
     choice = enquiries.choose('Choose one of these options: ', options)
@@ -81,15 +77,21 @@ def cropp_video(name, path):
         start, stop = time_conver_from_secon(clip)
         clip = VideoFileClip(source_path).subclip(start, stop)
         print(start, stop)        
-        # num = 0           
-        clip.write_videofile("cropped_"+ name, bitrate="4000k",
+        # num = 0  
+        name = rename_file(name)  
+        print(name)    
+        source_path = path + "/" + name
+        clip.write_videofile(name + ".mp4", bitrate="4000k",
                               threads=1, preset='ultrafast', codec='h264')
+                
     elif choice == options[1]:  
         clip = AudioFileClip(source_path)  
         start, stop = time_conver_from_secon(clip)
         clip = AudioFileClip(source_path).subclip(start, stop)
         print(start, stop)
-        clip.write_audiofile("cropped_"+name[:-4]+".mp3")
+        name = rename_file(name)
+        source_path = path + "/" + name
+        clip.write_audiofile(name + ".mp3")
         
     input("\nPress any key to continue..")    
     
@@ -111,9 +113,9 @@ if __name__ == "__main__":
                 choice = enquiries.choose('Choose one of these options: ', options)
                 print(choice)    
                 if choice == options[0]:
-                    down_yt_vid(youtube, path)
+                    down_yt_vid(youtube, path, 0)
                 elif choice == options[1]:
-                    down_yt_vid_as_mp3(youtube, path)  
+                    down_yt_vid(youtube, path, 1)  
                 elif choice == options[2]:
                     continue
             # This one should catch - pytube.exceptions.RegexMatchError:
@@ -127,7 +129,7 @@ if __name__ == "__main__":
         elif choice == options[1]:
             file = input("Enter file name:\n")
             try:
-                file = open(file)
+                open(file)
                 cropp_video(file, path)
             except IOError:
                 input("\nCant find this file.\nPress any key to try again..")
