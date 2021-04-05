@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import pytube
-from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.audio.io.AudioFileClip import AudioFileClip
 import enquiries
 import os
 import datetime
@@ -19,24 +19,22 @@ def video_info(youtube):
 # https://www    
 # downloading video
 def down_yt_vid(youtube, path):
-  
     video = youtube.streams.filter().first().download(path)
     options = ['Yes', 'No']
     choice = enquiries.choose('Do you want rename file?: ', options)
     if choice == options[0]:    
-        new_name = input("Enter new name:")
+        new_name = input("Enter new name (without extension):\n")
         os.rename(video, new_name +'.mp4')
     elif choice == options[1]:  
         pass
-    
+
 # downloading only audio   
-def down_yt_vid_as_mp3(youtube, path):
-    
+def down_yt_vid_as_mp3(youtube, path):    
     video = youtube.streams.filter(only_audio=True).first().download(path)
     options = ['Yes', 'No']
     choice = enquiries.choose('do you want rename file?: ', options)
     if choice == options[0]:    
-        new_name = input("Enter new name:")
+        new_name = input("Enter new name (without extension):\n")
         os.rename(video, new_name +'.mp4')
     elif choice == options[1]:       
         pass
@@ -49,34 +47,51 @@ def time_conver(time_tex):
     s = int(x[2])
     suma = h + m + s
     return(suma)
+
+# convert time from sec to h.m.s
+def time_conver_from_secon(clip):
+    sec = clip.duration
+    # mins = (clip.duration % 3600) / 60
+    m, s = divmod(sec, 60)
+    h, m = divmod(m, 60)    
+    m = str(int(m))
+    h = str(int(h))
+    s = str(int(s))
+    # conversion = datetime.timedelta(seconds=duration)
+    print("Duration : "+h+"."+m+"."+s )
+    
+    print("\nInput begining and the end of file in seconds")
+    print("Begining:")
+    start = input()
+    start = time_conver(start)
+    stop = input("The end:\n")
+    stop = time_conver(stop)
+    
+    return start, stop
     
 # cropping video    
 def cropp_video(name, path):
     source_path = path + "/" + name
     destin_path = path + "/" + "cropped_"+ name 
     
-    clip = VideoFileClip(source_path)
-    
-    sec = clip.duration
-    # mins = (clip.duration % 3600) / 60
-    m, s = divmod(sec, 60)
-    h, m = divmod(m, 60)
-    
-    m = str(int(m))
-    h = str(int(h))
-    s = str(int(s))
-    # conversion = datetime.timedelta(seconds=duration)
-    print("Duration : "+h+"."+m+"."+s )
-
-    print("\nInput begining and the end of file in seconds")
-    print("Begining:")
-    start = input()
-    start = time_conver(start)
-
-    stop = input("The end:")
-    stop = time_conver(stop)
-    
-    ffmpeg_extract_subclip(source_path, start, stop/2, targetname = destin_path)
+    options = ['Cut Video [only]: ', 'Cut Audio and convert to mp3']
+    choice = enquiries.choose('Choose one of these options: ', options)
+    if choice == options[0]:
+        clip = VideoFileClip(source_path)  
+        start, stop = time_conver_from_secon(clip)
+        clip = VideoFileClip(source_path).subclip(start, stop)
+        print(start, stop)        
+        # num = 0           
+        clip.write_videofile("cropped_"+ name, bitrate="4000k",
+                              threads=1, preset='ultrafast', codec='h264')
+    elif choice == options[1]:  
+        clip = AudioFileClip(source_path)  
+        start, stop = time_conver_from_secon(clip)
+        clip = AudioFileClip(source_path).subclip(start, stop)
+        print(start, stop)
+        clip.write_audiofile("cropped_"+name[:-4]+".mp3")
+        
+    input("\nPress any key to continue..")    
     
 # main loop
 if __name__ == "__main__":
@@ -86,7 +101,6 @@ if __name__ == "__main__":
     options = ['Download Video', 'Crop file', 'Close']
     while(True):
         os.system('clear')
-
         choice = enquiries.choose('Choose one of these options: ', options)
         if choice == options[0]:
             url = input("Enter url of video:\n")
@@ -111,8 +125,12 @@ if __name__ == "__main__":
               print('The following video is unavailable: {}'.format(url))
             input("\nPress any key to continue..")
         elif choice == options[1]:
-            name = input("Enter file name:\n")            
-            cropp_video(name, path)
+            file = input("Enter file name:\n")
+            try:
+                file = open(file)
+                cropp_video(file, path)
+            except IOError:
+                input("\nCant find this file.\nPress any key to try again..")
         elif choice == options[2]:
             print("See you soon!")
             break
