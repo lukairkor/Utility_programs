@@ -34,7 +34,7 @@ def progress(chunk, file_handle, bytes_remaining):
     os.system('clear')
     remaining = (100 * bytes_remaining) / filesize
     step = 100 - int(remaining)
-    print("Completed:", step) # show the percentage of completed download
+    print("Completed:", step, "%") # show the percentage of completed download
     
 # downloading video
 def down_yt_vid(youtube, path, kind):
@@ -48,13 +48,14 @@ def down_yt_vid(youtube, path, kind):
 # rename file
 def rename_file(video):
     options = ['Yes', 'No']
-    choice = enquiries.choose('do you want rename file?: ', options)
+    choice = enquiries.choose('Do you want rename file?: ', options)
     if choice == options[0]:    
         new_name = input("Enter new name (without extension):\n")
         os.rename(video, new_name +'.mp4')
         return new_name
-    elif choice == options[1]:       
-        pass
+    elif choice == options[1]:  
+        return video
+        
     
 # convert time from h.m.s to sec
 def time_conver(time_tex):
@@ -90,7 +91,6 @@ def time_conver_from_secon(clip):
 # cropping video    
 def cropp_video(name, path):
     source_path = path + "/" + name
-    
     options = ['Cut Video [only]: ', 'Cut Audio and convert to mp3']
     choice = enquiries.choose('Choose one of these options: ', options)
     # cut only video into video
@@ -112,7 +112,8 @@ def cropp_video(name, path):
         clip = AudioFileClip(source_path).subclip(start, stop)
         print(start, stop)
         name = rename_file(name)
-        source_path = path + "/" + name
+        print(name)
+        source_path = path + "/" + str(name)
         clip.write_audiofile(name + ".mp3")
         
     input("\nPress any key to continue..")    
@@ -173,7 +174,6 @@ if __name__ == "__main__":
         elif choice == options[2]:
             print("See you soon!")
             break
-        else:
-            continue
+
 
 
