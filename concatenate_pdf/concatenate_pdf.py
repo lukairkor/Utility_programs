@@ -2,19 +2,64 @@
 """
 -concatenate pdf files
 """
-from PyPDF2 import PdfFileMerger
+from PyPDF2 import PdfFileMerger, PdfFileReader, PdfFileWriter
+# import os.path
+import enquiries
 
-my_pdfs = []
-amount = input("How many files to concatenate?\n")
-for i in range(int(amount)):
-    x = input("Input file name(without .pdf extension):\n")
-    pdf_file = open(str(x) + ".pdf", "rb")
-    my_pdfs.append(pdf_file)
+# adding pdf to list
+def add_new_pdf():
+    pdfs_paths = []
+    options = ['Add file: ', 'Finish adding']
+    
+    while(True):
+        choice = enquiries.choose('Choose one of these options: ', options)
+        if choice == options[0]:      
+            try:
+                f_name = input("Input file name(without .pdf extension):\n")
+                f_name = str(f_name) + ".pdf"            
+                open(f_name)
+                pdfs_paths.append(f_name) 
+            except IOError:
+                print("Can't find such file!")
+            finally:
+                continue
+        elif choice == options[1]:
+            break
+    return pdfs_paths
 
-merge_engin = PdfFileMerger()
+# merging pdfs
+def concatenate_file():    
+    pdfs_paths = add_new_pdf()
+    # merge_engin = PdfFileMerger()    
+    pdf_writer = PdfFileWriter()
+    # pdf_reader = PdfFileReader()
+    
+    for path in pdfs_paths:
+        pdf = PdfFileReader(path,strict=False)
+        # Load PDF into pyPDF          
+        for page in range(pdf.getNumPages()):
+            # Add each page to the writer object
+            pdf_writer.addPage(pdf.getPage(page))
+     
+    f_name = ""
+    print("Do you want rename file? [defoult name is merged.pdf]")
+    options = ['Yes: ', 'No']
+    choice = enquiries.choose('Choose one of these options: ', options)
+    if choice == options[0]: 
+        new_name =  input("Input file name(without .pdf extension):\n")
+        f_name = new_name + ".pdf"
+    if choice == options[1]:  
+        f_name = "merged.pdf"
+    
+    with open(f_name, 'wb') as f:
+        pdf_writer.write(f)
+        f.closed
 
-for pdf in my_pdfs:
-    merge_engin.append(pdf)
+# main function                
+if __name__ == "__main__":
+    concatenate_file()
 
-merge_engin.write("conc_pdf_file.pdf")
-merge_engin.close()
+
+
+
+    
