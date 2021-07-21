@@ -15,15 +15,32 @@ from os import listdir
 # information about video
 def video_info(youtube):
     conversion = datetime.timedelta(seconds=youtube.length)
+    # video description
     print('\nVideo description: ', youtube.description)
     print('Rating', youtube.rating)
     print('Length', conversion )
     print('Views', youtube.views, "\n") 
     
     # chosing video format/available media formats
-    itagi = youtube.streams.filter(progressive=True).all()
-    print(itagi)
-    itag = input('Choose itag:\n')
+    itagi = youtube.streams.filter(file_extension='mp4')
+    
+    # listing all avilible video formats
+    for x in range(len(itagi)):
+        # remove specific character from string
+        result = re.sub(r"[<>\"]", "", str(itagi[x]), flags=re.I)
+        # delete part of strings that started with words "vcode or acode" to end
+        exp = re.compile('vcodec')
+        if re.search(exp, str(itagi[x])):
+            pos = re.search(" vcodec", str(itagi[x])).start()
+            result = result[:pos-8]
+        else:
+            pos = re.search(" acodec", str(itagi[x])).start()
+            result = result[:pos-8]
+        
+        print(result)
+    
+    # print("\nstart\n",itagi,"\nstop\n")
+    itag = input('Choose itag (only number e.g. 18):\n')
     yt1 = youtube.streams.get_by_itag(int(itag)) 
     filesize = yt1.filesize
     return filesize
@@ -41,7 +58,7 @@ def down_yt_vid(youtube, path, kind):
     if kind == 0:        
         video = youtube.streams.filter().first().download(path)
     elif kind == 1:
-        video = youtube.streams.filter(only_audio=True).first().download(path)
+        video = youtube.streams.filter(only_audio = True).first().download(path)
     rename_file(video)
     # video_play(video)
 
@@ -134,8 +151,9 @@ if __name__ == "__main__":
         os.system('clear')
         choice = enquiries.choose('Choose one of these options: ', options)
         if choice == options[0]:
-            # url = "https://www.youtube.com/watch?v=hS5CfP8n_js&list=PLA-C_QHqX6ZkbVeCvNsq8P8isZP1J_KiB"
+            # url = "https://www.youtube.com/watch?v=wELOA2U7FPQ&t=8430s"
             url = input("Enter url of video:\n")
+            url = str(url)
             try:
                 youtube = pytube.YouTube(url, on_progress_callback=progress)
                 
