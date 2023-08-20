@@ -5,71 +5,96 @@
 - youtube downloader
 - cropping video
 '''
-from os.path import isfile, join
-import sys
-import re
 import datetime
 import os
+import re
+import subprocess
+import sys
+from os.path import isfile, join
+
 import enquiries
-from pytube import YouTube, exceptions
-from moviepy.video.io.VideoFileClip import VideoFileClip
+import inquirer
 from moviepy.audio.io.AudioFileClip import AudioFileClip
-from moviepy.editor import preview
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from pytube import YouTube, exceptions
+
 
 # from os import listdir
 
 
-def video_info(youtu):
-    '''information about video'''
-    conversion = datetime.timedelta(seconds=youtu.length)
-    # video description
-    print('\nVideo description: ', youtu.description)
-    print('Rating', youtu.rating)
-    print('Length', conversion )
-    print('Views', youtu.views, "\n")
+def get_video_info(youtu):
+    '''Get information about a video, choose a resolution, and return the worked itag.'''
 
-    # chosing video format/available media formats
-    itagi = youtu.streams.filter(file_extension='mp4')
+    unique_resolutions = set()  # Keep track of unique resolutions
+    resolution_choices = []  # Prepare the list of resolution choices
 
-    # listing all avilible video formats
-    for count, _ in enumerate(itagi):
-        # remove specific character from string
-        result = re.sub(r"[<>\"]", "", str(itagi[count]), flags=re.I)
-        # delete part of strings that started with words "vcode or acode" to end
-        exp = re.compile('vcodec')
-        if re.search(exp, str(itagi[count])):
-            pos = re.search("vcodec", str(itagi[count])).start()
-            result = result[:pos-8]
-        else:
-            pos = re.search("acodec", str(itagi[count])).start()
-            result = result[:pos-8]
+    for stream in youtu.streams:
+        if stream.mime_type == "video/mp4" and stream.resolution not in unique_resolutions:
+            unique_resolutions.add(stream.resolution)
+            resolution_choices.append(f"{stream.resolution} ({stream.mime_type})")
 
-        print(result)
+    if not resolution_choices:
+        print("No .mp4 streams available.")
+        return None
 
-    # print("\nstart\n",itagi,"\nstop\n")
-    itag = input('Choose itag (only number e.g. 18):\n')
-    yt1 = youtu.streams.get_by_itag(int(itag))
-    filesize = yt1.filesize
-    return filesize
+    # Sort the resolution choices in ascending order
+    resolution_choices.sort()
+
+    print('\nVideo description:', youtu.description)
+    print('Rating:', youtu.rating)
+    print('Length:', datetime.timedelta(seconds=youtu.length))
+    print('Views:', youtu.views, "\n")
+
+    # Define the available options for resolutions using inquirer
+    options = [
+        inquirer.List('resolution',
+                      message='Choose a resolution:',
+                      choices=resolution_choices,
+                      carousel=True)
+    ]
+
+    # Prompt user to choose a resolution
+    answers = inquirer.prompt(options)
+
+    chosen_resolution = answers['resolution']
+    chosen_stream = next(
+        (stream for stream in youtu.streams if f"{stream.resolution} ({stream.mime_type})" == chosen_resolution), None)
+
+    if chosen_stream:
+        return chosen_stream  # Return the chosen stream directly
+    else:
+        print("Invalid choice. Returning None...")
+        return None
 
 
-def progress(chunk, file_handle, bytes_remaining):
-    '''calculate downloaded percent'''
-    global filesize
-    os.system('clear')
-    remaining = (100 * bytes_remaining) / filesize
-    step = 100 - int(remaining)
-    print("Completed:", step, "%") # show the percentage of completed download
+def progress(stream, chunk, bytes_remaining):
+    total_size = stream.filesize
+    bytes_downloaded = total_size - bytes_remaining
+    percentage = (bytes_downloaded / total_size) * 100
+    # Print progress more frequently
+    if percentage % 10 == 0:
+        print(f"Downloaded: {percentage:.2f}%")
+    print(f"Downloaded: {percentage:.2f}%")
 
 
-def down_yt_vid(youtu, path, kind):
+def down_yt_vid(youtu, video_path, kind):
     '''downloading video'''
+    extension = 'mp4'
+
+    options = ['Yes', 'No']
+    choice = enquiries.choose('Do you want preview file?: ', options)
+    if choice == options[0]:
+        video_play(youtu)
+    elif choice == options[1]:
+        pass
+
     if kind == 0:
-        video = youtu.streams.filter().first().download(path)
+        video = youtu.streams.filter(file_extension=extension).first()
+        video.download(video_path)
     elif kind == 1:
-        video = youtu.streams.filter(only_audio = True).first().download(path)
+        video = youtu.streams.filter(only_audio=True).first()
+        video.download(video_path)
     rename_file(video)
-    # video_play(video)
 
 
 def rename_file(video):
@@ -77,11 +102,14 @@ def rename_file(video):
     options = ['Yes', 'No']
     choice = enquiries.choose('Do you want rename file?: ', options)
     if choice == options[0]:
-        new_name = input("Enter new name (without extension):\n")
-        os.rename(video, new_name +'.mp4')
-        return new_name
+        video_name = input("Enter new name (without extension):\n")
+        original_filename = video.default_filename
+        old_name = os.path.join(os.getcwd() + "/" + str(original_filename))
+        new_name = os.path.join(os.getcwd(), video_name + '.mp4')
+        print(new_name)
+        os.rename(old_name, new_name)
     elif choice == options[1]:
-        return video
+        pass
 
 
 def time_conver(time_tex):
@@ -105,7 +133,7 @@ def time_conver_from_secon(clip):
     hour = str(int(hour))
     second = str(int(second))
 
-    print("Duration : " + hour + "." + minute + "." + second )
+    print("Duration : " + hour + "." + minute + "." + second)
     # convert back to seconds
     print("\nInput begining and the end of file as: 0.0.0")
     print("Begining:")
@@ -132,7 +160,7 @@ def cropp_video(name, path):
         print(name)
         source_path = path + "/" + name
         clip.write_videofile(name + ".mp4", bitrate="4000k",
-                              threads=1, preset='ultrafast', codec='h264')
+                             threads=1, preset='ultrafast', codec='h264')
     # cut audio and video into only audio
     elif choice == options[1]:
         clip = AudioFileClip(source_path)
@@ -147,11 +175,18 @@ def cropp_video(name, path):
     input("\nPress any key to continue..")
 
 
-def video_play(name):
+def video_play(youtube):
     '''preview video'''
-    clip = VideoFileClip(name)
-    # looping video 3 times
-    clip.preview(fps = 20)  
+
+    # Get the highest resolution stream for video playback
+    video_stream = youtube.streams.get_highest_resolution()
+
+    # Get the direct URL of the video stream
+    video_stream_url = video_stream.url
+
+    # Play the video stream using mpv
+    mpv_command = ['mpv', video_stream_url]
+    subprocess.run(mpv_command)
 
 
 if __name__ == "__main__":
@@ -159,18 +194,18 @@ if __name__ == "__main__":
     assert ('linux' in sys.platform), "This code runs on Linux only."
     path = os.getcwd()
 
-    options = ['Download Video', 'Crop file', 'Close']
+    options = ['Download File', 'Crop file', 'Close']
     while True:
         os.system('clear')
         choice = enquiries.choose('Choose one of these options: ', options)
         if choice == options[0]:
-            # url = "https://www.youtube.com/watch?v=wELOA2U7FPQ&t=8430s"
+            # url = "https://www.youtube.com/watch?v=ql9-82oV2JE&list=RDYiIhiDjrAWc&index=2"
             url = input("Enter url of video:\n")
             url = str(url)
             try:
                 youtube = YouTube(url, on_progress_callback=progress)
 
-                filesize = video_info(youtube)
+                filesize = get_video_info(youtube)
                 # video_play(url)
                 optionss = ['Download Video', 'Download only sound', 'Back']
                 choice = enquiries.choose('Choose one of these options: ', optionss)
@@ -185,7 +220,7 @@ if __name__ == "__main__":
             except exceptions.RegexMatchError:
                 print('The Regex pattern did not return any matches for the video: {}'.format(url))
             except exceptions.ExtractError:
-                print ('An extraction error occurred for the video: {}'.format(url))
+                print('An extraction error occurred for the video: {}'.format(url))
             except exceptions.VideoUnavailable:
                 print('The following video is unavailable: {}'.format(url))
             input("\nPress any key to continue..")
@@ -195,7 +230,7 @@ if __name__ == "__main__":
             for file in dirs:
                 if isfile(join(path, file)):
                     print(file)
-            # type file name from above list
+            # type file name from an above list
             file = input("Enter file name from files above:\n")
             try:
                 open(file)
